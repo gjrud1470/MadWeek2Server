@@ -79,7 +79,7 @@ MongoClient.connect (url, {useNewUrlParser: true}, function (err,client){
                 .find({'email':email}).count(function(err,number){
                     if(number != 0){
                         response.json('Email already exists');
-                        console.log('Email already exists');
+                        console.log(email);
                     }
                     else{
                         // Insert Data
@@ -95,17 +95,17 @@ MongoClient.connect (url, {useNewUrlParser: true}, function (err,client){
         app.post('/login', (request, response, next)=> {
             var post_data = request.body;
 
-            var email= post_data.email;
+            var email = post_data.email;
             var userPassword = post_data.password;
 
-            var db = client.db('edmtdevnodejs');
+            var db = client.db('Ku');
 
             // Check exists email
             db.collection('user')
                 .find({'email':email}).count(function(err,number){
                     if(number == 0){
-                        response.json('Email not exists');
-                        console.log('Email not exists');
+                        response.json({login_success:'fail'});
+                        console.log(email);
                     }
                     else{
 
@@ -116,17 +116,38 @@ MongoClient.connect (url, {useNewUrlParser: true}, function (err,client){
                                 var hashed_password = checkHashPassword(userPassword, salt).passwordHash;
                                 var encrypted_password = user.password;
                                 if (hashed_password == encrypted_password){
-                                    response.json("Login success");
+                                    response.json({login_success : 'success',
+						   salt : salt});
                                     console.log("Login success");
                                 }
                                 else{
-                                    response.json("Wrong success");
+                                    response.json({login_success : 'fail'});
                                     console.log("Wrong success");
                                 }
                             })
                     }
                 })
         });
+
+	app.post('/pre-login', (request, response, next)=> {
+		var post_data = request.body;
+
+		var salt = post_data.salt;
+
+		var db = client.db('Ku');
+
+		db.collection('user')
+			.find({salt:salt}).count(function(err,number){
+				if(number == 0){
+					response.json({login_success: 'fail'});
+					console.log("Pre-login fail");
+				}
+				else{
+					response.json({login_success: 'success'});
+					console.log("Pre-login success");
+				}
+			})
+	});
 
         //Start Web Server
 		app.listen (80, () => {
