@@ -149,6 +149,59 @@ MongoClient.connect (url, {useNewUrlParser: true}, function (err,client){
 			})
 	});
 
+        app.post('/contact_upload', (request, response, next)=> {
+                var post_data = request.body;
+
+                var salt = post_data.salt;
+                var id = post_data.id;
+
+                var db = client.db('Ku');
+
+		var name = post_data.name;
+		var mobile_number = post_data.mobile_number;
+                var group = post_data.group;
+
+		var insertJson = {
+			'salt' : salt,
+			'id' : id,
+			'name' : name,
+			'mobile_number' : mobile_number
+			'group' : group
+		};
+
+                // Check exists email
+                db.collection('contacts')
+			.find({$and: [{salt:salt}, {id:id}]}).count(function(err, number) {
+				if (number == 0) {
+				    db.collection('contacts')
+					.insertOne(insertJson, function(error, res) {
+					    response.json({upload_success : 'success'});
+					    console.log('upload success');
+					})
+				}
+				else {
+				    db.collection('contacts')
+					.deleteOne({$and: [{salt:salt}, {id:id}]});
+				    db.collection('contacts')
+					.insertOne(insertJson, function(error, res) {
+                                            response.json({upload_success : 'success'});
+                                            console.log('upload success');
+                                        })
+				}
+			})
+                });
+
+	app.get('/contact_download/:salt', function(req, res) {
+        var target_salt = req.params.salt;
+        var db = client.db('Ku');
+        var base64_box = [];
+
+        db.collection('contacts').find({salt:target_salt}).toArray(function(e, d){
+            var i;
+            res.send(d);
+        });
+      })
+
         //Start Web Server
 		app.listen (80, () => {
             console.log ('Connected to MongoDB Server, WebService running on port 6880');
