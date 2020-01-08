@@ -187,36 +187,38 @@ MongoClient.connect (url, {useNewUrlParser: true}, function (err,client){
         db.collection('test')
             .find({originalName:originalName}).count(function (err, number){
                 if(number!=0){
-                    res.json("Already exist file!");
+                    res.json({result:"Already exist file!"});
                     console.log("Already exist file!");
                 }
                 else{
                     db.collection('test')
                         .insertOne(insertJson , function(err, resoibse){
-                            res.json("Image uploading!");
-                            console.log("Image uploading!");
+                            res.json({result:"Image upload success!"});
+                            console.log("Image upload success!");
                 })
             }    
         })
     });
 
-    app.delete('/delete/:salt', function(req, res) {
-        var delete_data = req.body;
-        var target_name = delete_data.originalName;
+    app.get('/delete/:salt/:name', function(req, res) {
+        var target_name = req.params.name;
         var target_salt = req.params.salt;
+
+	console.log(target_name);
+	console.log(target_salt);
 
         var db = client.db('Ku');
 
         db.collection('test')
             .find({$and: [{originalName:target_name}, {salt:target_salt}]}).count(function(err,number){
                 if(number == 0){
-                    res.json("No target image!");
+                    res.json({result:"No target image!"});
                     console.log("No target image!");
                 }
                 else{
                     db.collection('test')
                         .deleteOne({$and: [{originalName:target_name}, {salt:target_salt}]});
-                    res.json("Successfully removed");
+                    res.json({result:"Successfully removed"});
                     console.log("Successfully removed");
                 }
             })
@@ -226,13 +228,30 @@ MongoClient.connect (url, {useNewUrlParser: true}, function (err,client){
     app.get('/download/:salt', function(req, res) {
         var target_salt = req.params.salt;
         var db = client.db('Ku');
-        var base64_box = [];
+
+	//db.collection('test').updateMany({}, { $unset : {_id:1}});
+	db.collection('test').updateMany({}, { $unset : {details:1} });
 
         db.collection('test').find({salt:target_salt}).toArray(function(e, d){
-            var i;
-            res.send(d);
+        	console.log("Downloading..");
+		res.json(d);
         });
       })
+
+
+    app.post('/contact_update_num', function(request, response) {
+	var post_data = request.body;
+	var salt = post_data.salt;
+	var contact_number = post_data.contact_number;
+
+	var db = client.db('Ku');
+
+	db.collection('user').updateOne(
+		{ salt: salt },
+		{ $set: { contact_number: contact_number }});
+	response.json({update_success : 'success'});
+	console.log('update of contact number success');
+    });
 
 
     app.post('/contact_upload', (request, response, next)=> {
@@ -248,11 +267,11 @@ MongoClient.connect (url, {useNewUrlParser: true}, function (err,client){
                 var group = post_data.group;
 
                 var insertJson = {
-                        'salt' : salt,
-                        'id' : id,
-                        'name' : name,
-                        'mobile_number' : mobile_number,
-                        'group' : group
+                        salt : salt,
+                        id : id,
+                        name : name,
+                        mobile_number : mobile_number,
+                        group : group
                 };
 
                 // Check exists email
@@ -262,7 +281,6 @@ MongoClient.connect (url, {useNewUrlParser: true}, function (err,client){
                                     db.collection('contacts')
                                         .insertOne(insertJson, function(error, res) {
                                             response.json({upload_success : 'success'});
-                                            console.log('upload success');
                                         })
                                 }
                                 else {
@@ -271,23 +289,59 @@ MongoClient.connect (url, {useNewUrlParser: true}, function (err,client){
                                     db.collection('contacts')
                                         .insertOne(insertJson, function(error, res) {
                                             response.json({upload_success : 'success'});
-                                            console.log('upload success');
                                         })
                                 }
                         })
                 });
 
-    app.get('/contact_download/:salt', function(req, res) {
-        var target_salt = req.params.salt;
+    app.get('/contact_download/:salt', function(request, response) {
+        var target_salt = request.params.salt;
         var db = client.db('Ku');
-        var base64_box = [];
 
-        db.collection('contacts').find({salt:target_salt}).toArray(function(e, d){
-            var i;
-            res.send(d);
+        db.collection('contacts').find({salt:target_salt}).toArray(function(err, result){
+            if (err) throw err;
+	    response.json(result);
+	    //console.log(result);
         });
       })
 
+    app.get('/contact_get_num/:salt', function (request, response) {
+	var salt = request.params.salt;
+	var db = client.db('Ku');
+	db.collection('user').find({salt:salt}).count(function(err, number) {
+	    if (number == 0) {
+		response.json({get_number_success:'fail'});
+		console.log('failed to get contact number');
+	    }
+	    else {
+		db.collection('user').findOne({salt:salt}, function(error, user) {
+		    var contact_number = user.contact_number;
+		    response.json({get_number_success : 'success',
+				   contact_number : contact_number});
+		    console.log('Contact number is returned');
+		});
+	    }
+	});
+    });
+
+    app.get('/user_name/:salt', function (request, response) {
+	var salt = request.params.salt;
+	var db = client.db('Ku');
+	db.collection('user').find({salt:salt}).count(function(err, number) {
+            if (number == 0) {
+                response.json({get_name:'fail'});
+                console.log('failed to get user name');
+            }
+            else {
+                db.collection('user').findOne({salt:salt}, function(error, user) {
+                    var name = user.name;
+                    response.json({get_name : 'success',
+                                   name : name});
+                    console.log('User name has successfully been returned');
+                });
+            }
+        });
+    });
 
         //Start Web Server
 		app.listen (80, () => {
